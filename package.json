@@ -1,0 +1,27 @@
+{
+  "name": "cvm-l402",
+  "version": "0.0.1",
+  "private": true,
+  "description": "L402 (Lightning HTTP 402) payment rail for ContextVM CEP-8",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test 'src/**/*.test.ts'",
+    "hello:server": "tsx src/examples/hello-server.ts",
+    "hello:client": "tsx src/examples/hello-client.ts"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@contextvm/mcp-sdk": "^1.30.0",
+    "@contextvm/sdk": "^0.14.0",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.2",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  }
+}

@@ -1,0 +1,77 @@
+# Headless "Polar": regtest bitcoind + two LND nodes + a Nostr relay.
+#   lnd-server : the paid tool server's node (mints L402 invoices)
+#   lnd-agent  : the autonomous agent's node (pays invoices)
+services:
+  bitcoind:
+    image: polarlightning/bitcoind:27.0
+    container_name: cvm-bitcoind
+    command: >
+      bitcoind -server=1 -regtest=1 -txindex=1 -fallbackfee=0.0001
+      -rpcuser=polaruser -rpcpassword=polarpass
+      -rpcbind=0.0.0.0 -rpcallowip=0.0.0.0/0
+      -zmqpubrawblock=tcp://0.0.0.0:28334 -zmqpubrawtx=tcp://0.0.0.0:28335
+      -debug=0 -printtoconsole=0
+    ports:
+      - "18443:18443"
+    volumes:
+      - bitcoind-data:/home/bitcoin/.bitcoin
+    healthcheck:
+      test: ["CMD", "bitcoin-cli", "-regtest", "-rpcuser=polaruser", "-rpcpassword=polarpass", "getblockchaininfo"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  lnd-server:
+    image: polarlightning/lnd:0.19.3-beta
+    container_name: cvm-lnd-server
+    depends_on:
+      bitcoind:
+        condition: service_healthy
+    command: >
+      lnd --noseedbackup --trickledelay=5000 --alias=lnd-server --externalip=lnd-server
+      --tlsextradomain=lnd-server --tlsextradomain=localhost --tlsextradomain=host.docker.internal
+      --listen=0.0.0.0:9735 --rpclisten=0.0.0.0:10009 --restlisten=0.0.0.0:8080
+      --bitcoin.regtest --bitcoin.node=bitcoind
+      --bitcoind.rpchost=bitcoind --bitcoind.rpcuser=polaruser --bitcoind.rpcpass=polarpass
+      --bitcoind.zmqpubrawblock=tcp://bitcoind:28334 --bitcoind.zmqpubrawtx=tcp://bitcoind:28335
+      --protocol.wumbo-channels --accept-keysend --accept-amp
+    ports:
+      - "10009:10009"
+      - "8081:8080"
+    volumes:
+      - lnd-server-data:/home/lnd/.lnd
+
+  lnd-agent:
+    image: polarlightning/lnd:0.19.3-beta
+    container_name: cvm-lnd-agent
+    depends_on:
+      bitcoind:
+        condition: service_healthy
+    command: >
+      lnd --noseedbackup --trickledelay=5000 --alias=lnd-agent --externalip=lnd-agent
+      --tlsextradomain=lnd-agent --tlsextradomain=localhost --tlsextradomain=host.docker.internal
+      --listen=0.0.0.0:9735 --rpclisten=0.0.0.0:10009 --restlisten=0.0.0.0:8080
+      --bitcoin.regtest --bitcoin.node=bitcoind
+      --bitcoind.rpchost=bitcoind --bitcoind.rpcuser=polaruser --bitcoind.rpcpass=polarpass
+      --bitcoind.zmqpubrawblock=tcp://bitcoind:28334 --bitcoind.zmqpubrawtx=tcp://bitcoind:28335
+      --protocol.wumbo-channels --accept-keysend --accept-amp
+    ports:
+      - "10010:10009"
+      - "8082:8080"
+    volumes:
+      - lnd-agent-data:/home/lnd/.lnd
+
+  relay:
+    image: scsibug/nostr-rs-relay:0.10.0
+    container_name: cvm-relay
+    ports:
+      - "7777:8080"
+    volumes:
+      - ./relay/config.toml:/usr/src/app/config.toml:ro
+      - relay-data:/usr/src/app/db
+
+volumes:
+  bitcoind-data:
+  lnd-server-data:
+  lnd-agent-data:
+  relay-data:
